@@ -170,19 +170,30 @@ export const useUserListStore = defineStore('userList', () => {
     ignoredUsernames.value = new Set<string>();
   }
 
-  return {
-    getUserByUsername(username: string, nick?: string) {
-      const user = knownUsers.get(username.toLocaleLowerCase());
-      if (user) {
-        return readonly(user);
-      } else {
-        if (nick)
-          irc.client?.whowas(nick, (event) => {
+  const inFlightWhowas = reactive(new Set<string>());
+
+  function getUserByUsername(username: string, nick?: string) {
+    const user = knownUsers.get(username.toLocaleLowerCase());
+    if (user) {
+      return readonly(user);
+    } else {
+      if (nick && !inFlightWhowas.has(nick)) {
+        inFlightWhowas.add(nick);
+        irc.client?.whowas(nick, (event) => {
+          // In case there was a race condition where it was added by join/nick "properly" after we triggered this query
+          if (!getUserByNickInternal(event.nick)) {
             addUserNick(event.nick, event.ident);
-          });
-        return null;
+            removeUserNick(event.nick);
+          }
+          inFlightWhowas.delete(event.nick);
+        });
       }
-    },
+      return null;
+    }
+  }
+
+  return {
+    getUserByUsername,
     getUserByNick(nick: string) {
       const user = getUserByNickInternal(nick);
       return user ? readonly(user) : null;

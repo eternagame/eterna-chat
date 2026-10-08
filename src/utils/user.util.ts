@@ -1,6 +1,24 @@
-export function createNick(username: string) {
+export function createNick(username: string, uid: string) {
+  // https://github.com/ergochat/ergo/blob/6e25291c9b7450d63db59f360e1b6d90fa83e345/irc/strings.go#L19-L32
+  // https://github.com/ergochat/ergo/blob/6e25291c9b7450d63db59f360e1b6d90fa83e345/irc/client_lookup_set.go#L105
+  // https://github.com/ergochat/ergo/blob/6e25291c9b7450d63db59f360e1b6d90fa83e345/irc/strings.go#L93-L98
+  // Also avoid ^ as that's reserved for our use
+  // Our serevr is currently configured with a max nicklen of 32, so we subtract off the length of the suffix (^[uid-]xxx)
+  // The fallback to "player" is in the off case all characters are special characters
+  const escapedUsername =
+    username
+      .replace(/[ ,*?.!@:<>'";~&%+-^]/g, '')
+      .replace(/^[$]/, '')
+      .slice(0, -4) || 'Player';
   const connectionId = Math.floor(Math.random() * 1_000);
-  return `${username}^${connectionId}`;
+  if (username === escapedUsername) {
+    // No escaping happened, so no need to disambiguate
+    return `${username}^${connectionId}`;
+  } else {
+    // We include the UID to make sure we don't have collisions between usernames where we have removed disallowed
+    // characters or truncated (such that whowas lookups would wind up being incorrect).
+    return `${escapedUsername.slice(0, -uid.length - 1)}^${uid}-${connectionId}`;
+  }
 }
 
 /**

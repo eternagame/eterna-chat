@@ -57,7 +57,7 @@ export const useIrcStore = defineStore('irc', () => {
       client.value = null;
     }
 
-    const nick = createNick(username);
+    const nick = createNick(username, uid);
     currentNick.value = nick;
     currentUser.nicks.add(nick);
     currentUser.username = username.toLocaleLowerCase();
